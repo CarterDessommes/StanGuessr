@@ -18,8 +18,6 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-const MAPS_CONFIG_URL = "http://localhost:3001/api/config/maps";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 loadEnvFile(path.join(__dirname, ".env"));
@@ -31,6 +29,8 @@ app.use(cors());
 app.use(express.json());
 // URL-encoded body parser (for Form Data)
 app.use(express.urlencoded({ extended: true }));
+// Serve the static frontend (one origin for app + API)
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -117,7 +117,7 @@ const stanfordLocations = [
   
 ].map((location, index) => ({ id: index + 1, ...location }));
 
-app.get("/", (req, res) => {
+app.get("/healthz", (req, res) => {
   res.json({ status: "ok", message: "StanGuessr API is running" });
 });
 

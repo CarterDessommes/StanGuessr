@@ -1,0 +1,11 @@
+{
+  "name": "stanguessr",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "postinstall": "npm install --prefix backend",
+    "start": "node backend/server.js"
+  }
+}

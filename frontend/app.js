@@ -1,4 +1,4 @@
-const BASE_API_URL = "http://localhost:3001/api";
+const BASE_API_URL = "/api";
 
 const homeScreen = document.querySelector("main");
 const endScreen = document.querySelector("#end-screen");

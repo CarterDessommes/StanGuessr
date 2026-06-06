@@ -1,7 +1,7 @@
 import DatabaseSync from "better-sqlite3";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-const db = new DatabaseSync("./guesser.db");
+const db = new DatabaseSync(process.env.DB_PATH || "./guesser.db");
 
 const PASSWORD_KEY_LENGTH = 64;
 
