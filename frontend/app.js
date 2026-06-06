@@ -1,4 +1,10 @@
-const BASE_API_URL = "/api";
+const isLocalStaticFrontend =
+  window.location.protocol === "file:" ||
+  (["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+    window.location.port.startsWith("55"));
+const BASE_API_URL = isLocalStaticFrontend
+  ? "http://localhost:3001/api"
+  : "/api";
 
 const homeScreen = document.querySelector("main");
 const endScreen = document.querySelector("#end-screen");
