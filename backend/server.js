@@ -18,8 +18,6 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-const MAPS_CONFIG_URL = "http://localhost:3001/api/config/maps";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 loadEnvFile(path.join(__dirname, ".env"));
@@ -31,6 +29,8 @@ app.use(cors());
 app.use(express.json());
 // URL-encoded body parser (for Form Data)
 app.use(express.urlencoded({ extended: true }));
+// Serve the static frontend (one origin for app + API)
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -65,11 +65,7 @@ function loadEnvFile(filePath) {
 }
 
 const stanfordLocations = [
-  {
-    lat: 37.4272713,
-    lng: -122.1840778,
-    name: "O'Donohue Family Stanford Educational Farm",
-  },
+  { lat: 37.4272713, lng: -122.1840778, name: "O'Donohue Family Stanford Educational Farm" },
   { lat: 37.4205135, lng: -122.1737358, name: "Kappa Alpha" },
   { lat: 37.4198322, lng: -122.1745579, name: "In between EBF and Narnia" },
   { lat: 37.4196663, lng: -122.1672592, name: "In between Phi Psi and TouLou" },
@@ -88,22 +84,10 @@ const stanfordLocations = [
   { lat: 37.4219057, lng: -122.162767, name: "Pi Phi" },
   { lat: 37.425097, lng: -122.170026, name: "Old Union" },
   { lat: 37.4290153, lng: -122.1558078, name: "Stanford Federal Credit Union" },
-  {
-    lat: 37.4257376,
-    lng: -122.1806768,
-    name: "In between Ricker and Robinson",
-  },
-  {
-    lat: 37.4333776,
-    lng: -122.1758075,
-    name: "Front of Stanford Medical Center",
-  },
+  { lat: 37.4257376,lng: -122.1806768, name: "In between Ricker and Robinson" },
+  { lat: 37.4333776, lng: -122.1758075, name: "Front of Stanford Medical Center" },
   { lat: 37.4328688, lng: -122.1711744, name: "Cantor" },
-  {
-    lat: 37.4239285,
-    lng: -122.1658509,
-    name: "In between Sally Ride and Casa Zapata",
-  },
+  { lat: 37.4239285, lng: -122.1658509, name: "In between Sally Ride and Casa Zapata" },
   { lat: 37.4436119, lng: -122.1721739, name: "Stanford Shopping Center" },
   { lat: 37.4365144, lng: -122.1698481, name: "Mausoleum" },
   { lat: 37.4299387, lng: -122.1669126, name: "Graduate School of Business South" },
@@ -113,11 +97,19 @@ const stanfordLocations = [
   { lat: 37.4268217, lng: -122.1773863, name: "Entrance to AOERC Gym" },
   { lat: 37.4233601, lng: -122.1648701, name: "Wilbur Field" },
   { lat: 37.4413715, lng: -122.1686334, name: "Hoover Medical Campus" },
-
-  
+  { lat: 37.4226903, lng: -122.156489, name: "Windy Hill Open Space Preserve" },
+  { lat: 37.4229709, lng: -122.170329, name: "Tresidder Parking Lot" },
+  { lat: 37.4358828, lng: -122.1692313, name: "Path to Mausoleum" },
+  { lat: 37.4335797, lng: -122.1727472, name: "Stanford Medical Parking" },
+  { lat: 37.4302377, lng: -122.1667970, name: "Outisde Frost Amphitheater" },
+  { lat: 37.4071365, lng: -122.1649618, name: "Stanford Dish Trail Area" },
+  { lat: 37.4287383, lng: -122.1724583, name: "Back of Hewlett" },
+  { lat: 37.4331935, lng: -122.1693090, name: "Stone River" },
+  { lat: 37.4279659, lng: -122.1743686, name: "Huang Hallway" },
+  { lat: 37.4341405, lng: -122.1681862, name: "Palm Dr Stop Sign" },
 ].map((location, index) => ({ id: index + 1, ...location }));
 
-app.get("/", (req, res) => {
+app.get("/healthz", (req, res) => {
   res.json({ status: "ok", message: "StanGuessr API is running" });
 });
 
@@ -222,17 +214,12 @@ app.post("/api/users", (req, res) => {
 // Creating a user's account
 app.post("/api/signup", (req, res) => {
   const name = req.body.name?.trim();
-  const password = req.body.password?.trim();
 
   if (!name) {
     return res.status(400).json({ error: "Name is required" });
   }
 
-  if (!password) {
-    return res.status(400).json({ error: "Password is required" });
-  }
-
-  const newUser = createUser(name, password);
+  const newUser = createUser(name);
 
   if (!newUser) {
     return res.status(409).json({ error: "Name already taken" });
@@ -244,20 +231,15 @@ app.post("/api/signup", (req, res) => {
 // Logging into a user's account
 app.post("/api/login", (req, res) => {
   const name = req.body.name?.trim();
-  const password = req.body.password?.trim();
 
   if (!name) {
     return res.status(400).json({ error: "Name is required" });
   }
 
-  if (!password) {
-    return res.status(400).json({ error: "Password is required" });
-  }
-
-  const user = verifyUserCredentials(name, password);
+  const user = verifyUserCredentials(name);
 
   if (!user) {
-    return res.status(401).json({ error: "Incorrect username or password" });
+    return res.status(401).json({ error: "Username not found" });
   }
 
   res.json(user);

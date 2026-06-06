@@ -1,30 +1,13 @@
 import DatabaseSync from "better-sqlite3";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-const db = new DatabaseSync("./guesser.db");
+const db = new DatabaseSync(process.env.DB_PATH || "./guesser.db");
 
-const PASSWORD_KEY_LENGTH = 64;
-
-// Create user table (userid, name)
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     userid INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    password_hash TEXT
+    name TEXT NOT NULL
   );
-`);
 
-const userColumns = db.prepare(`PRAGMA table_info(users)`).all();
-const hasPasswordHashColumn = userColumns.some(
-  (column) => column.name === "password_hash",
-);
-
-if (!hasPasswordHashColumn) {
-  db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT;`);
-}
-
-// Create game table (gameid, score, userid)
-db.exec(`
   CREATE TABLE IF NOT EXISTS games (
     gameid INTEGER PRIMARY KEY AUTOINCREMENT,
     score INTEGER NOT NULL,
@@ -33,36 +16,72 @@ db.exec(`
   );
 `);
 
+normalizeSchema();
+
 // Enable foreign key checking
 db.exec('PRAGMA foreign_keys = ON;');
 
-function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString(
-    "hex",
+function normalizeSchema() {
+  const userColumns = db.prepare(`PRAGMA table_info(users)`).all();
+  const hasPasswordHashColumn = userColumns.some(
+    (column) => column.name === "password_hash",
   );
-  return `${salt}:${derivedKey}`;
-}
+  const gamesTableSql = db
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .get("games")?.sql;
+  const gamesReferencesLegacyUsers = gamesTableSql?.includes("users_legacy");
 
-function verifyPassword(password, passwordHash) {
-  if (!passwordHash) {
-    return false;
+  if (!hasPasswordHashColumn && !gamesReferencesLegacyUsers) {
+    return;
   }
 
-  const [salt, storedKey] = passwordHash.split(":");
+  db.exec(`
+    PRAGMA foreign_keys = OFF;
 
-  if (!salt || !storedKey) {
-    return false;
+    BEGIN TRANSACTION;
+
+    ALTER TABLE games RENAME TO games_legacy;
+  `);
+
+  if (hasPasswordHashColumn) {
+    db.exec(`
+      ALTER TABLE users RENAME TO users_legacy;
+
+      CREATE TABLE users (
+        userid INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+      );
+
+      INSERT INTO users (userid, name)
+      SELECT userid, name
+      FROM users_legacy;
+    `);
   }
 
-  const derivedKey = scryptSync(password, salt, PASSWORD_KEY_LENGTH);
-  const storedKeyBuffer = Buffer.from(storedKey, "hex");
+  db.exec(`
+    CREATE TABLE games (
+      gameid INTEGER PRIMARY KEY AUTOINCREMENT,
+      score INTEGER NOT NULL,
+      userid INTEGER NOT NULL,
+      FOREIGN KEY (userid) REFERENCES users(userid) ON DELETE CASCADE
+    );
 
-  if (derivedKey.length !== storedKeyBuffer.length) {
-    return false;
+    INSERT INTO games (gameid, score, userid)
+    SELECT gameid, score, userid
+    FROM games_legacy;
+
+    DROP TABLE games_legacy;
+  `);
+
+  if (hasPasswordHashColumn) {
+    db.exec(`DROP TABLE users_legacy;`);
   }
 
-  return timingSafeEqual(derivedKey, storedKeyBuffer);
+  db.exec(`
+    COMMIT;
+
+    PRAGMA foreign_keys = ON;
+  `);
 }
 
 // Adds new user, returns their userid and name
@@ -78,14 +97,11 @@ export function addGameScore(finalScore, user) {
 }
 
 // Creates a new user to add  to user table
-export function createUser(name, password) {
+export function createUser(name) {
   const existing = getUserByName(name);
   if (existing) return null;
 
-  const passwordHash = hashPassword(password);
-  const result = db
-    .prepare(`INSERT INTO users (name, password_hash) VALUES (?, ?)`)
-    .run(name, passwordHash);
+  const result = db.prepare(`INSERT INTO users (name) VALUES (?)`).run(name);
   return { userid: result.lastInsertRowid, name };
 }
 
@@ -117,16 +133,14 @@ export function getScoreRank(score) {
 // Returns the user's name
 export function getUserByName(name) {
   return db
-    .prepare(
-      `SELECT userid, name, password_hash FROM users WHERE LOWER(name) = LOWER(?)`,
-    )
+    .prepare(`SELECT userid, name FROM users WHERE LOWER(name) = LOWER(?)`)
     .get(name);
 }
 
-export function verifyUserCredentials(name, password) {
+export function verifyUserCredentials(name) {
   const user = getUserByName(name);
 
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  if (!user) {
     return null;
   }
 

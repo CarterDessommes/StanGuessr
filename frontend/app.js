@@ -1,4 +1,10 @@
-const BASE_API_URL = "http://localhost:3001/api";
+const isLocalStaticFrontend =
+  window.location.protocol === "file:" ||
+  (["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+    window.location.port.startsWith("55"));
+const BASE_API_URL = isLocalStaticFrontend
+  ? "http://localhost:3001/api"
+  : "/api";
 
 const homeScreen = document.querySelector("main");
 const endScreen = document.querySelector("#end-screen");
@@ -13,7 +19,6 @@ const resultsNextButton = document.getElementById("results-next-btn");
 const authView = document.getElementById("auth-view");
 const authForm = document.getElementById("auth-form");
 const authNameInput = document.getElementById("auth-name");
-const authPasswordInput = document.getElementById("auth-password");
 const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
 const authFeedback = document.getElementById("auth-feedback");
@@ -175,7 +180,7 @@ async function startRound() {
   }
 }
 
-function endGame() {
+async function endGame() {
   const totalScore = roundScores.reduce((sum, score) => sum + (score || 0), 0);
 
   document.querySelector("#final-score").textContent =
@@ -407,15 +412,11 @@ function updateAuthView() {
     ? "Create a StanGuessr username to save your best scores."
     : "Enter your StanGuessr username to load your personal leaderboard.";
   authSubmit.textContent = isSignup ? "Create account" : "Log in";
-  authPasswordInput.autocomplete = isSignup
-    ? "new-password"
-    : "current-password";
   authSwitchText.textContent = isSignup
     ? "Already have an account?"
     : "Need an account?";
   authSwitchButton.textContent = isSignup ? "Log in" : "Sign up";
   authNameInput.value = "";
-  authPasswordInput.value = "";
   setAuthFeedback("");
 }
 
@@ -1111,18 +1112,11 @@ function setupAuthButtons() {
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = authNameInput.value.trim();
-    const password = authPasswordInput.value;
     const formData = new FormData(authForm);
 
     if (!name) {
       setAuthFeedback("Enter a username.");
       authNameInput.focus();
-      return;
-    }
-
-    if (!password) {
-      setAuthFeedback("Enter a password.");
-      authPasswordInput.focus();
       return;
     }
 
