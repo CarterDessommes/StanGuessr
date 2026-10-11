@@ -1,48 +1,69 @@
 # StanGuessr
 
-A Stanford location guessing game inspired by [GeoGuessr](https://www.geoguessr.com/)
+A Stanford location guessing game inspired by GeoGuessr, made by Carter, Eric,
+Tina, and Andrea for CS146J.
 
-Made by Carter, Eric, Tina, and Andrea for CS146J
+## Cloudflare hosting
 
-## Running locally
+The frontend is served as Workers static assets. `worker/index.mjs` implements
+the same `/api/*` endpoints as the original Express app, with persistent users
+and scores in Cloudflare D1. The frontend and API share one origin.
 
-1. Go to [Google Maps Platform | Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/demo-key) and click "Get a Demo Key".\*
-2. Create a `.env` file in the `backend` folder and add the line `GOOGLE_MAPS_API_KEY=[YOUR_MAPS_DEMO_KEY]`.
-3. From the project root, install the backend dependencies with `npm install --prefix backend`.
-4. Start the app with `node backend/server.js`.
-5. Open [http://localhost:3001/](http://localhost:3001/) in your browser.
+Use the Workers **Free** plan. No paid subscription or custom domain is required.
+Google Maps and Street View are billed separately by Google; check that account's
+free usage allowance and quotas before promoting the game.
 
-Do **not** open `frontend/index.html` with Live Server. The frontend sends API requests to the same origin, so opening it on Live Server's port prevents those requests from reaching the backend on port `3001`. Express serves both the frontend and API at the URL above.
+### Local development
 
-\*Note: You may need to link a billing account to the project in Google Cloud to remove watermarks and negative imaging. This should not charge you though.
+1. Install Node.js 22 or later, then run `npm ci`.
+2. Copy `.dev.vars.example` to `.dev.vars` and set `GOOGLE_MAPS_API_KEY`.
+3. Run `npm run db:migrate:local`.
+4. Run `npm run dev` and open `http://localhost:8787`.
+5. With the local server running on port 8787, run `npm test` in another terminal.
 
-## Deploying to the web (Railway)
+Tests use only the local D1 emulator and create local test users/scores. They do
+not write to the production database. `.dev.vars` and `.wrangler` are ignored.
 
-The app deploys as a single Railway service: the Express backend serves both the API
-and the static frontend, and a Railway **Volume** holds the SQLite database so scores
-and accounts persist across deploys.
+### First deployment
 
-### One-time setup
+1. Run `npx wrangler login` to authorize your Cloudflare account.
+2. Run `npx wrangler d1 create stanguessr` and put its `database_id` in
+   `wrangler.jsonc` (replace the all-zero placeholder).
+3. Run `npm run db:migrate:remote`.
+4. Run `npx wrangler secret put GOOGLE_MAPS_API_KEY` and provide the browser Maps key.
+5. Run `npm run deploy`. Wrangler prints the public `workers.dev` URL.
+6. In Google Cloud, restrict the browser key to that exact website referrer
+   (including `https://` and `/*`) and the Maps JavaScript API. Keep any existing
+   needed referrers. Check Maps/Street View quotas and billing separately.
+7. Verify `/api/health`, start a game, and check the map and Street View.
 
-1. **Production Maps key.** In the Google Cloud Console, enable the **Maps JavaScript
-   API** and **Street View Static API**, create an API key, and under "Application
-   restrictions" choose **HTTP referrers**. Add your Railway domain (start with
-   `https://*.up.railway.app/*`, then tighten to the exact domain after step 6). Set
-   quota caps to stay within Google's free monthly usage.
-2. **Create the project.** On [railway.app](https://railway.app), sign in with GitHub →
-   **New Project** → **Deploy from GitHub repo** → select this repo. Railway builds
-   from the root `package.json`.
-3. **Variables** (service → Variables tab):
-   - `GOOGLE_MAPS_API_KEY` = the key from step 1
-   - `DB_PATH` = `/data/guesser.db`
+The browser necessarily receives the Maps key; website and API restrictions are
+what prevent use on unrelated sites. Never commit account tokens or `.dev.vars`.
 
-   Do **not** set `PORT` — Railway provides it automatically.
-4. **Volume** (service → add a Volume): mount path `/data`. This is where the SQLite
-   file lives and persists between deploys.
-5. **Generate a domain** (Settings → Networking → Generate Domain) to get a public URL
-   like `stanguessr-production.up.railway.app`.
-6. Tighten the Maps key's HTTP-referrer restriction to that exact domain.
+### Updating
 
-### Updating the live site
+Run `npm ci`, apply any new remote migrations with `npm run db:migrate:remote`,
+then run `npm run deploy`. GitHub pushes alone do not deploy unless a Cloudflare
+build integration is separately configured. `npm run deploy -- --dry-run`
+validates the bundle without publishing it.
 
-Push to `main` (or merge a PR) and Railway redeploys automatically. No CLI needed.
+### Existing scores
+
+Local SQLite files are not automatically imported or published. Back up the old
+production database if it is still accessible, check its users/scores, then
+import explicitly into D1. Do not import development test data by default.
+The initial D1 schema enforces case-insensitive unique usernames, so resolve
+duplicate names before importing old data.
+
+### Behavior and limitations
+
+The existing username-only login and client-submitted scores are preserved.
+This is a casual game, not a password-protected account or verified competition.
+API queries are bounded and indexed to keep D1 reads small. Free-plan limits may
+temporarily make API/database operations unavailable if exceeded.
+
+### Legacy Node server
+
+The original Express/SQLite implementation remains in `backend/`. Install its
+dependencies with `npm install --prefix backend`, configure `backend/.env`, and
+run `npm run start:legacy` to use it at `http://localhost:3001`.

@@ -1,0 +1,2 @@
+# Browser Maps key: restrict it to the deployed domain in Google Cloud.
+GOOGLE_MAPS_API_KEY=your_google_maps_browser_key
