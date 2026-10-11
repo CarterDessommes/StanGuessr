@@ -4,6 +4,7 @@
   "main": "worker/index.mjs",
   "compatibility_date": "2026-10-11",
   "workers_dev": true,
+  "preview_urls": false,
   "assets": {
     "directory": "./frontend",
     "binding": "ASSETS",
@@ -12,7 +13,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "stanguessr",
-    "database_id": "00000000-0000-0000-0000-000000000000",
+    "database_id": "3ee6400e-ddcd-4840-bcf5-02a3d62624c6",
     "migrations_dir": "migrations"
   }]
 }

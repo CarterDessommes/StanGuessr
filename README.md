@@ -3,6 +3,8 @@
 A Stanford location guessing game inspired by GeoGuessr, made by Carter, Eric,
 Tina, and Andrea for CS146J.
 
+Play at **https://stanguessr.carterdessommes.workers.dev**.
+
 ## Cloudflare hosting
 
 The frontend is served as Workers static assets. `worker/index.mjs` implements
@@ -28,7 +30,7 @@ not write to the production database. `.dev.vars` and `.wrangler` are ignored.
 
 1. Run `npx wrangler login` to authorize your Cloudflare account.
 2. Run `npx wrangler d1 create stanguessr` and put its `database_id` in
-   `wrangler.jsonc` (replace the all-zero placeholder).
+   `wrangler.jsonc` (the checked-in ID belongs to the deployed game).
 3. Run `npm run db:migrate:remote`.
 4. Run `npx wrangler secret put GOOGLE_MAPS_API_KEY` and provide the browser Maps key.
 5. Run `npm run deploy`. Wrangler prints the public `workers.dev` URL.
